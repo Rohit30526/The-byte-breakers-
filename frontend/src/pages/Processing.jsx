@@ -1,4 +1,15 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
 export default function Processing() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setTimeout(() => {
+      navigate("/result");
+    }, 3000);
+  }, []);
+
   return (
     <div className="container">
       <div className="card">

@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Upload() {
   const [doc, setDoc] = useState("");
   const [file, setFile] = useState(null);
+  const navigate = useNavigate();
 
   return (
     <div className="container">
@@ -19,11 +21,14 @@ export default function Upload() {
           <>
             <input type="file" onChange={(e) => setFile(e.target.files[0])} />
 
-            {file && (
-              <p className="success">
-                ✔ Uploaded: {file.name}
-              </p>
-            )}
+            {file && <p className="success">✔ Uploaded: {file.name}</p>}
+
+            <button
+              style={{ marginTop: "15px" }}
+              onClick={() => navigate("/selfie")}
+            >
+              Continue →
+            </button>
           </>
         )}
       </div>
