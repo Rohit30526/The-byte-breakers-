@@ -90,7 +90,21 @@ print("Raw OCR Text:\n", text)
 # -------------------------
 
 # Aadhaar Number (XXXX XXXX XXXX)
-aadhaar = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', text)
+aadhaar = []
+
+# Remove mobile numbers (10-digit starting with 6–9)
+clean_text = re.sub(r'\b[6-9]\d{9}\b', '', text)
+
+# Find Aadhaar pattern
+matches = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', clean_text)
+
+# Validate properly
+for m in matches:
+    digits = re.sub(r'\D', '', m)
+
+    # Aadhaar must be exactly 12 digits
+    if len(digits) == 12:
+        aadhaar.append(digits)
 
 # DOB
 dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
