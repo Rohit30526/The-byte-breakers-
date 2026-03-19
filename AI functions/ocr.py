@@ -2,166 +2,104 @@ import cv2
 import pytesseract
 import re
 
-
-# Tesseract path
+# ✅ Tesseract path
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# Load image
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
 
-# Hide tkinter window
-Tk().withdraw()
+def ocr_function(file_path):
+    try:
+        # 🔹 Load image
+        img = cv2.imread(file_path)
 
-# Open file dialog
-file_path = askopenfilename(title="Select ID Card Image")
+        if img is None:
+            return {"error": "Error loading image"}
 
-if not file_path:
-    print("No file selected ❌")
-    exit()
+        # 🔹 Resize (better accuracy)
+        img = cv2.resize(img, None, fx=2, fy=2)
 
-# Load image
-img = cv2.imread(file_path)
+        # 🔹 Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-if img is None:
-    print("Error loading image ❌")
-    exit()
+        # 🔹 Improve image
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
 
-print("Image loaded ✅")
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
+        gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
 
-# Resize (improves accuracy)
-img = cv2.resize(img, None, fx=2, fy=2)
+        # 🔹 OCR config
+        custom_config = r'--oem 3 --psm 6'
 
-# Convert to grayscale
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # 🔹 Extract text
+        text_raw = pytesseract.image_to_string(img, config=custom_config, lang='eng+hin')
+        text_proc = pytesseract.image_to_string(gray, config=custom_config, lang='eng+hin')
 
-# -------- STEP 4: FACE EXTRACTION --------
-import dlib
+        text = text_raw + "\n" + text_proc
 
-face_detector = dlib.get_frontal_face_detector()
-faces = face_detector(gray)
-if len(faces) == 0:
-    print("No face detected ❌")
-face_img = None
+        # -------------------------
+        # 🔍 DATA EXTRACTION
+        # -------------------------
 
-for i, face in enumerate(faces):
-    h, w = img.shape[:2]
+        # Remove mobile numbers
+        clean_text = re.sub(r'\b[6-9]\d{9}\b', '', text)
 
-    x1 = max(0, face.left())
-    y1 = max(0, face.top())
-    x2 = min(w, face.right())
-    y2 = min(h, face.bottom())
+        # Aadhaar detection
+        aadhaar = []
+        matches = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', clean_text)
 
-    face_img = img[y1:y2, x1:x2]
-    cv2.imwrite("id_face.jpg", face_img)
-    print("Face extracted ✅")
-    break
-# ----------------------------------------
+        for m in matches:
+            digits = re.sub(r'\D', '', m)
+            if len(digits) == 12:
+                aadhaar.append(digits)
 
-# Improve contrast
-gray = cv2.bilateralFilter(gray, 11, 17, 17)
+        # DOB
+        dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
 
-# Sharpen image
-kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
-gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+        # Gender
+        gender = "Not Found"
+        if "MALE" in text.upper():
+            gender = "Male"
+        elif "FEMALE" in text.upper():
+            gender = "Female"
 
-# Try OCR on BOTH images
-text1 = pytesseract.image_to_string(gray, lang='eng')
-text2 = pytesseract.image_to_string(gray, lang='hin')
+        # Name detection
+        lines = text.split("\n")
+        name = ""
 
-text = text1 + "\n" + text2
+        for line in lines:
+            line = line.strip()
 
-# OCR
-custom_config = r'--oem 3 --psm 6'
+            clean_line = re.sub(r'[^A-Za-z ]', '', line)
+            clean_line = re.sub(r'\s+', ' ', clean_line).strip()
 
-# OCR on original image
-text_raw = pytesseract.image_to_string(img, config=custom_config, lang='eng+hin')
+            if len(clean_line) == 0:
+                continue
 
-# OCR on processed (grayscale) image
-text_proc = pytesseract.image_to_string(gray, config=custom_config, lang='eng+hin')
+            words = clean_line.split()
 
-# Combine both texts
-text = text_raw + "\n" + text_proc
+            if not (2 <= len(words) <= 4):
+                continue
 
-print("Raw OCR Text:\n", text)
+            if any(len(word) < 3 for word in words):
+                continue
 
-# -------------------------
-# 🔍 DATA EXTRACTION
-# -------------------------
+            if any(word.upper() in ["MALE", "FEMALE", "GOVERNMENT", "INDIA", "AADHAAR", "MOBILE"] for word in words):
+                continue
 
-# Aadhaar Number (XXXX XXXX XXXX)
-aadhaar = []
+            name = clean_line
+            break
 
-# Remove mobile numbers (10-digit starting with 6–9)
-clean_text = re.sub(r'\b[6-9]\d{9}\b', '', text)
+        # -------------------------
+        # 📦 FINAL OUTPUT
+        # -------------------------
 
-# Find Aadhaar pattern
-matches = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', clean_text)
+        data = {
+            "name": name if name else "Not Found",
+            "dob": dob[0] if dob else "Not Found",
+            "aadhaar": aadhaar[0] if aadhaar else "Not Found",
+            "gender": gender
+        }
 
-# Validate properly
-for m in matches:
-    digits = re.sub(r'\D', '', m)
+        return data
 
-    # Aadhaar must be exactly 12 digits
-    if len(digits) == 12:
-        aadhaar.append(digits)
-
-# DOB
-dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
-
-# Gender
-gender = "Unknown"
-if "MALE" in text.upper():
-    gender = "Male"
-elif "FEMALE" in text.upper():
-    gender = "Female"
-
-# Name (best line detection)
-lines = text.split("\n")
-name = ""
-
-for line in lines:
-    line = line.strip()
-
-    # Remove special characters
-    clean_line = re.sub(r'[^A-Za-z ]', '', line)
-
-    # Normalize spaces
-    clean_line = re.sub(r'\s+', ' ', clean_line).strip()
-
-    # ❌ Skip if empty
-    if len(clean_line) == 0:
-        continue
-
-    # ❌ Skip lines without proper English words
-    words = clean_line.split()
-
-    # Must have 2–4 words
-    if not (2 <= len(words) <= 4):
-        continue
-
-    # ❌ Reject short garbage words (like ae, be)
-    if any(len(word) < 3 for word in words):
-        continue
-
-    # ❌ Skip unwanted keywords
-    if any(word.upper() in ["MALE", "FEMALE", "GOVERNMENT", "INDIA", "AADHAAR", "MOBILE"] for word in words):
-        continue
-
-    # ✅ Valid name found
-    name = clean_line
-    break
-
-# -------------------------
-# 📦 FINAL OUTPUT
-# -------------------------
-
-data = {
-    "name": name if name else "Not Found",
-    "dob": dob[0] if dob else "Not Found",
-    "aadhaar": aadhaar[0] if aadhaar else "Not Found",
-    "gender": gender
-}
-
-print("\nExtracted Data:")
-print(data)
+    except Exception as e:
+        return {"error": str(e)}
