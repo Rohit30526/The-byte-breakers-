@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
+import ProgressBar from "../components/kyc/ProgressBar";
+<ProgressBar progress={50} />
 export default function Selfie() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -10,34 +11,31 @@ export default function Selfie() {
 
   const navigate = useNavigate();
 
-  // Start camera (FIXED)
-  const startCamera = async () => {
-  console.log("Start camera clicked");
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-    });
-
-    console.log("Camera stream received:", stream);
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-    }
-
+  // 🔥 Start camera (only change state)
+  const startCamera = () => {
     setCameraOn(true);
-  } catch (err) {
-    console.error("Camera error:", err);
-    alert("Camera error: " + err.message);
-  }
-};
+  };
+
+  // 🔥 Attach stream AFTER video renders
+  useEffect(() => {
+    if (cameraOn && videoRef.current) {
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        })
+        .catch((err) => {
+          console.error("Camera error:", err);
+          alert("Camera not working");
+        });
+    }
+  }, [cameraOn]);
 
   // Capture photo
   const capturePhoto = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-
-    if (!video || !canvas) return;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -73,6 +71,7 @@ export default function Selfie() {
               ref={videoRef}
               autoPlay
               playsInline
+              muted
               style={{ width: "100%", borderRadius: "10px" }}
             />
 
