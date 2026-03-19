@@ -6,7 +6,32 @@ import re
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # Load image
-img = cv2.imread("id_card2.jpeg")
+cap = cv2.VideoCapture(0)
+
+print("Press 'c' to capture ID card")
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    cv2.imshow("Capture ID", frame)
+
+    key = cv2.waitKey(1) & 0xFF
+
+    if key == ord('c'):
+        img = frame.copy()
+        cv2.imwrite("captured_id.jpg", img)
+        print("Image captured ✅")
+        break
+
+    elif key == 27:  # ESC
+        cap.release()
+        cv2.destroyAllWindows()
+        exit()
+
+cap.release()
+cv2.destroyAllWindows()
 
 if img is None:
     print("Error: Image not found")
@@ -17,6 +42,27 @@ img = cv2.resize(img, None, fx=2, fy=2)
 
 # Convert to grayscale
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+# -------- STEP 4: FACE EXTRACTION --------
+import dlib
+
+face_detector = dlib.get_frontal_face_detector()
+faces = face_detector(gray)
+
+face_img = None
+
+for i, face in enumerate(faces):
+    x1 = face.left()
+    y1 = face.top()
+    x2 = face.right()
+    y2 = face.bottom()
+
+    face_img = img[y1:y2, x1:x2]
+    cv2.imwrite("id_face.jpg", face_img)
+    print("Face extracted ✅")
+    break
+# ----------------------------------------
 
 # Apply threshold
 _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
