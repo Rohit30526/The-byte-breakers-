@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
+import ProgressBar from "../components/kyc/ProgressBar";
+<ProgressBar progress={50} />
 export default function Selfie() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);

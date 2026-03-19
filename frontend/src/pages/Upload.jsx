@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ProgressBar from "../components/kyc/ProgressBar";
 
 export default function Upload() {
   const [doc, setDoc] = useState("");
@@ -7,31 +8,46 @@ export default function Upload() {
   const navigate = useNavigate();
 
   return (
-    <div className="container">
-      <div className="card">
-        <h2>Upload Document</h2>
+    <>
+      {/* 🔥 Progress Bar */}
+      <ProgressBar progress={25} />
 
-        <select onChange={(e) => setDoc(e.target.value)}>
-          <option value="">Choose Document</option>
-          <option value="aadhaar">Aadhaar Card</option>
-          <option value="pan">PAN Card</option>
-        </select>
+      <div className="container">
+        <div className="card">
+          <h2>Upload Document</h2>
 
-        {doc && (
-          <>
-            <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+          {/* Select Document */}
+          <select onChange={(e) => setDoc(e.target.value)}>
+            <option value="">Choose Document</option>
+            <option value="aadhaar">Aadhaar Card</option>
+            <option value="pan">PAN Card</option>
+          </select>
 
-            {file && <p className="success">✔ Uploaded: {file.name}</p>}
+          {/* Upload File */}
+          {doc && (
+            <>
+              <input
+                type="file"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
 
-            <button
-              style={{ marginTop: "15px" }}
-              onClick={() => navigate("/selfie")}
-            >
-              Continue →
-            </button>
-          </>
-        )}
+              {file && (
+                <p className="success">
+                  ✔ Uploaded: {file.name}
+                </p>
+              )}
+
+              {/* Continue Button */}
+              <button
+                style={{ marginTop: "15px" }}
+                onClick={() => navigate("/selfie")}
+              >
+                Continue →
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
