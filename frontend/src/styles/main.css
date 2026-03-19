@@ -1,0 +1,80 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Background */
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eef2ff, #f3e8ff);
+}
+
+/* Card */
+.card {
+  background: white;
+  padding: 40px 30px;
+  border-radius: 16px;
+  width: 360px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  transition: 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+/* Titles */
+h1 {
+  font-size: 32px;
+  margin-bottom: 10px;
+  color: #1f2937;
+}
+
+h2 {
+  font-size: 22px;
+  margin-bottom: 10px;
+  color: #1f2937;
+}
+
+/* Text */
+p {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+/* Button */
+button {
+  padding: 12px 20px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s ease;
+}
+
+button:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+/* Inputs */
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+/* Success text */
+.success {
+  color: green;
+  margin-top: 10px;
+}

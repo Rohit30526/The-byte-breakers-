@@ -1,7 +1,9 @@
-import Home from "./pages/Home";
+import Result from "./pages/Result";
+// import Home from "./pages/Home";
+// import Selfie from "./pages/Selfie";
 
 function App() {
-  return <Home />;
+  return <Result />;
 }
 
 export default App;
