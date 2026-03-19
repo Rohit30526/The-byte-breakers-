@@ -1,49 +1,28 @@
-"use client";
-
-import { useState } from "react";
-
-export default function UploadPage() {
-  const [documentType, setDocumentType] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-
+export default function Home() {
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="bg-zinc-900 p-6 rounded-2xl w-[350px] shadow-lg">
-        <h1 className="text-xl font-bold mb-4">Upload Document</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-purple-100">
 
-        {/* Dropdown */}
-        <select
-          value={documentType}
-          onChange={(e) => setDocumentType(e.target.value)}
-          className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 mb-4"
-        >
-          <option value="">Select Document</option>
-          <option value="aadhaar">Aadhaar Card *</option>
-          <option value="pan">PAN Card *</option>
-        </select>
+      <div className="text-center">
+        
+        {/* Title */}
+        <h1 className="text-4xl font-bold text-gray-800 mb-3">
+          Raksha KYC AI
+        </h1>
 
-        {/* Upload Section */}
-        {documentType && (
-          <div>
-            <label className="text-sm text-gray-400">
-              Upload {documentType === "aadhaar" ? "Aadhaar Card" : "PAN Card"}
-            </label>
+        {/* Subtitle */}
+        <p className="text-gray-500 mb-8">
+          Secure and Fast Identity Verification
+        </p>
 
-            <input
-              type="file"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="mt-2 w-full p-2 bg-zinc-800 border border-zinc-700 rounded"
-            />
+        {/* Button */}
+        <button className="px-6 py-3 rounded-lg text-white font-medium 
+          bg-gradient-to-r from-blue-500 to-purple-600 
+          hover:scale-105 transition shadow-lg">
+          Start KYC →
+        </button>
 
-            {/* Preview */}
-            {file && (
-              <p className="text-green-400 mt-2 text-sm">
-                Uploaded: {file.name}
-              </p>
-            )}
-          </div>
-        )}
       </div>
+
     </div>
   );
 }
