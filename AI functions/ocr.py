@@ -2,46 +2,37 @@ import cv2
 import pytesseract
 import re
 
+
 # Tesseract path
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # Load image
-cap = cv2.VideoCapture(0)
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
 
-print("Press 'c' to capture ID card")
+# Hide tkinter window
+Tk().withdraw()
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+# Open file dialog
+file_path = askopenfilename(title="Select ID Card Image")
 
-    cv2.imshow("Capture ID", frame)
+if not file_path:
+    print("No file selected ❌")
+    exit()
 
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('c'):
-        img = frame.copy()
-        cv2.imwrite("captured_id.jpg", img)
-        print("Image captured ✅")
-        break
-
-    elif key == 27:  # ESC
-        cap.release()
-        cv2.destroyAllWindows()
-        exit()
-
-cap.release()
-cv2.destroyAllWindows()
+# Load image
+img = cv2.imread(file_path)
 
 if img is None:
-    print("Error: Image not found")
+    print("Error loading image ❌")
     exit()
+
+print("Image loaded ✅")
 
 # Resize (improves accuracy)
 img = cv2.resize(img, None, fx=2, fy=2)
 
 # Convert to grayscale
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 # -------- STEP 4: FACE EXTRACTION --------
@@ -49,14 +40,17 @@ import dlib
 
 face_detector = dlib.get_frontal_face_detector()
 faces = face_detector(gray)
-
+if len(faces) == 0:
+    print("No face detected ❌")
 face_img = None
 
 for i, face in enumerate(faces):
-    x1 = face.left()
-    y1 = face.top()
-    x2 = face.right()
-    y2 = face.bottom()
+    h, w = img.shape[:2]
+
+    x1 = max(0, face.left())
+    y1 = max(0, face.top())
+    x2 = min(w, face.right())
+    y2 = min(h, face.bottom())
 
     face_img = img[y1:y2, x1:x2]
     cv2.imwrite("id_face.jpg", face_img)
@@ -64,11 +58,30 @@ for i, face in enumerate(faces):
     break
 # ----------------------------------------
 
-# Apply threshold
-_, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+# Improve contrast
+gray = cv2.bilateralFilter(gray, 11, 17, 17)
+
+# Sharpen image
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
+gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+
+# Try OCR on BOTH images
+text1 = pytesseract.image_to_string(gray, lang='eng')
+text2 = pytesseract.image_to_string(gray, lang='hin')
+
+text = text1 + "\n" + text2
 
 # OCR
-text = pytesseract.image_to_string(thresh, lang='eng+hin+mar')
+custom_config = r'--oem 3 --psm 6'
+
+# OCR on original image
+text_raw = pytesseract.image_to_string(img, config=custom_config, lang='eng+hin')
+
+# OCR on processed (grayscale) image
+text_proc = pytesseract.image_to_string(gray, config=custom_config, lang='eng+hin')
+
+# Combine both texts
+text = text_raw + "\n" + text_proc
 
 print("Raw OCR Text:\n", text)
 
@@ -77,10 +90,10 @@ print("Raw OCR Text:\n", text)
 # -------------------------
 
 # Aadhaar Number (XXXX XXXX XXXX)
-aadhaar = re.findall(r'\d{4}\s\d{4}\s\d{4}', text)
+aadhaar = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', text)
 
 # DOB
-dob = re.findall(r'\d{2}/\d{2}/\d{4}', text)
+dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
 
 # Gender
 gender = "Unknown"
@@ -96,14 +109,34 @@ name = ""
 for line in lines:
     line = line.strip()
 
-    # Skip unwanted lines
-    if any(word in line.upper() for word in ["MALE", "FEMALE", "GOVERNMENT", "INDIA", "AADHAAR"]):
+    # Remove special characters
+    clean_line = re.sub(r'[^A-Za-z ]', '', line)
+
+    # Normalize spaces
+    clean_line = re.sub(r'\s+', ' ', clean_line).strip()
+
+    # ❌ Skip if empty
+    if len(clean_line) == 0:
         continue
 
-    # Check for valid name (2–4 words, alphabet only)
-    if re.match(r'^[A-Za-z]+\s[A-Za-z]+(\s[A-Za-z]+)?$', line):
-        name = line
-        break
+    # ❌ Skip lines without proper English words
+    words = clean_line.split()
+
+    # Must have 2–4 words
+    if not (2 <= len(words) <= 4):
+        continue
+
+    # ❌ Reject short garbage words (like ae, be)
+    if any(len(word) < 3 for word in words):
+        continue
+
+    # ❌ Skip unwanted keywords
+    if any(word.upper() in ["MALE", "FEMALE", "GOVERNMENT", "INDIA", "AADHAAR", "MOBILE"] for word in words):
+        continue
+
+    # ✅ Valid name found
+    name = clean_line
+    break
 
 # -------------------------
 # 📦 FINAL OUTPUT
