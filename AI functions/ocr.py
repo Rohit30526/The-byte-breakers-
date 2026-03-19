@@ -1,19 +1,15 @@
+import os
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 import cv2
-import pytesseract
 import re
+import numpy as np
+from paddleocr import PaddleOCR
 
-
-# Tesseract path
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-
-# Load image
+# File picker
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 
-# Hide tkinter window
 Tk().withdraw()
-
-# Open file dialog
 file_path = askopenfilename(title="Select ID Card Image")
 
 if not file_path:
@@ -29,22 +25,22 @@ if img is None:
 
 print("Image loaded ✅")
 
-# Resize (improves accuracy)
+# Resize
 img = cv2.resize(img, None, fx=2, fy=2)
 
-# Convert to grayscale
+# Grayscale
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-# -------- STEP 4: FACE EXTRACTION --------
+# -------- FACE EXTRACTION --------
 import dlib
 
 face_detector = dlib.get_frontal_face_detector()
 faces = face_detector(gray)
+
 if len(faces) == 0:
     print("No face detected ❌")
-face_img = None
 
-for i, face in enumerate(faces):
+for face in faces:
     h, w = img.shape[:2]
 
     x1 = max(0, face.left())
@@ -56,112 +52,207 @@ for i, face in enumerate(faces):
     cv2.imwrite("id_face.jpg", face_img)
     print("Face extracted ✅")
     break
-# ----------------------------------------
+# --------------------------------
 
-# Improve contrast
+# -------- OCR SETUP (PaddleOCR) --------
+ocr = PaddleOCR(use_angle_cls=True, lang='en')
+
+def extract_text_paddle(image):
+    result = ocr.predict(image)
+
+    extracted_text = []
+
+    for res in result:
+        if 'rec_texts' in res:
+            extracted_text.extend(res['rec_texts'])
+
+    return "\n".join(extracted_text)
+
+# -------- IMAGE PREPROCESSING --------
 gray = cv2.bilateralFilter(gray, 11, 17, 17)
 
-# Sharpen image
 kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
 gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
 
-# Try OCR on BOTH images
-text1 = pytesseract.image_to_string(gray, lang='eng')
-text2 = pytesseract.image_to_string(gray, lang='hin')
+# Sharpen (VERY IMPORTANT for Paddle)
+sharpen_kernel = np.array([[0, -1, 0],
+                           [-1, 5,-1],
+                           [0, -1, 0]])
+gray = cv2.filter2D(gray, -1, sharpen_kernel)
 
-text = text1 + "\n" + text2
+# Threshold
+_, gray = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
 
-# OCR
-custom_config = r'--oem 3 --psm 6'
+# -------- OCR --------
+text_raw = extract_text_paddle(img)
+text_proc = extract_text_paddle(gray)
 
-# OCR on original image
-text_raw = pytesseract.image_to_string(img, config=custom_config, lang='eng+hin')
-
-# OCR on processed (grayscale) image
-text_proc = pytesseract.image_to_string(gray, config=custom_config, lang='eng+hin')
-
-# Combine both texts
 text = text_raw + "\n" + text_proc
+text = text.upper()
 
 print("Raw OCR Text:\n", text)
+
+# Keep formatting clean
+text = re.sub(r'[ \t]+', ' ', text)
+
+# -------------------------
+# 🧠 DOCUMENT DETECTION
+# -------------------------
+
+doc_type = "UNKNOWN"
+
+pan_pattern = re.findall(r'[A-Z]{5}[0-9]{4}[A-Z]', text)
+aadhaar_pattern = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', text)
+
+pan_keywords = [
+    "INCOME", "TAX", "DEPARTMENT",
+    "PERMANENT", "ACCOUNT", "NUMBER"
+]
+
+pan_keyword_score = sum(1 for word in pan_keywords if word in text)
+
+if pan_pattern or pan_keyword_score >= 2:
+    doc_type = "PAN"
+
+elif aadhaar_pattern or ("AADHAAR" in text) or ("GOVERNMENT" in text and "INDIA" in text):
+    doc_type = "AADHAAR"
+
+print("Detected Document Type:", doc_type)
+
+# Force PAN if pattern exists
+if re.search(r'[A-Z]{5}[0-9]{4}[A-Z]', text):
+    doc_type = "PAN"
 
 # -------------------------
 # 🔍 DATA EXTRACTION
 # -------------------------
 
-# Aadhaar Number (XXXX XXXX XXXX)
 aadhaar = []
-
-# Remove mobile numbers (10-digit starting with 6–9)
-clean_text = re.sub(r'\b[6-9]\d{9}\b', '', text)
-
-# Find Aadhaar pattern
-matches = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', clean_text)
-
-# Validate properly
-for m in matches:
-    digits = re.sub(r'\D', '', m)
-
-    # Aadhaar must be exactly 12 digits
-    if len(digits) == 12:
-        aadhaar.append(digits)
-
-# DOB
-dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
-
-# Gender
+pan = "Not Found"
+dob = []
 gender = "Unknown"
-if "MALE" in text.upper():
-    gender = "Male"
-elif "FEMALE" in text.upper():
-    gender = "Female"
-
-# Name (best line detection)
-lines = text.split("\n")
 name = ""
+name_pan = ""
+father_name = ""
 
-for line in lines:
-    line = line.strip()
+# ---------- AADHAAR ----------
+if doc_type == "AADHAAR":
 
-    # Remove special characters
-    clean_line = re.sub(r'[^A-Za-z ]', '', line)
+    clean_text = re.sub(r'\b[6-9]\d{9}\b', '', text)
+    matches = re.findall(r'\d{4}\s?\d{4}\s?\d{4}', clean_text)
 
-    # Normalize spaces
-    clean_line = re.sub(r'\s+', ' ', clean_line).strip()
+    for m in matches:
+        digits = re.sub(r'\D', '', m)
+        if len(digits) == 12:
+            aadhaar.append(digits)
 
-    # ❌ Skip if empty
-    if len(clean_line) == 0:
-        continue
+    dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
 
-    # ❌ Skip lines without proper English words
-    words = clean_line.split()
+    if "MALE" in text:
+        gender = "Male"
+    elif "FEMALE" in text:
+        gender = "Female"
 
-    # Must have 2–4 words
-    if not (2 <= len(words) <= 4):
-        continue
+    # SMART NAME DETECTION
+    lines = text.split("\n")
+    candidates = []
 
-    # ❌ Reject short garbage words (like ae, be)
-    if any(len(word) < 3 for word in words):
-        continue
+    for line in lines:
+        line = line.strip()
 
-    # ❌ Skip unwanted keywords
-    if any(word.upper() in ["MALE", "FEMALE", "GOVERNMENT", "INDIA", "AADHAAR", "MOBILE"] for word in words):
-        continue
+        clean_line = re.sub(r'[^A-Z ]', '', line)
+        clean_line = re.sub(r'\s+', ' ', clean_line).strip()
 
-    # ✅ Valid name found
-    name = clean_line
-    break
+        if len(clean_line) < 5:
+            continue
+
+        words = clean_line.split()
+
+        if 2 <= len(words) <= 4:
+            if any(word in ["MALE", "FEMALE", "GOVERNMENT", "INDIA", "AADHAAR", "MOBILE"] for word in words):
+                continue
+
+            score = len(clean_line)
+
+            if all(word.isalpha() for word in words):
+                score += 10
+
+            if any(len(word) > 12 for word in words):
+                score -= 10
+
+            candidates.append((clean_line, score))
+
+    if candidates:
+        candidates = sorted(candidates, key=lambda x: x[1], reverse=True)
+        name = candidates[0][0]
+
+# ---------- PAN ----------
+elif doc_type == "PAN":
+
+    pan_matches = re.findall(r'[A-Z]{5}[0-9]{4}[A-Z]', text)
+
+    if pan_matches:
+        pan = pan_matches[0]
+
+    dob = re.findall(r'\d{2}[/\-]\d{2}[/\-]\d{4}', text)
+
+    lines = text.split("\n")
+
+    for line in lines:
+        line_clean = line.strip()
+
+        clean = re.sub(r'[^A-Z ]', '', line_clean)
+        clean = re.sub(r'\s+', ' ', clean).strip()
+
+        if len(clean) < 5:
+            continue
+
+        words = clean.split()
+
+        if not (2 <= len(words) <= 4):
+            continue
+
+        if any(len(word) < 3 for word in words):
+            continue
+
+        if any(word in ["INCOME", "TAX", "DEPARTMENT", "GOVT", "INDIA", "ACCOUNT", "NUMBER"] for word in words):
+            continue
+
+        if name_pan == "":
+            name_pan = clean
+            continue
+
+        if father_name == "":
+            father_name = clean
+            break
 
 # -------------------------
 # 📦 FINAL OUTPUT
 # -------------------------
 
-data = {
-    "name": name if name else "Not Found",
-    "dob": dob[0] if dob else "Not Found",
-    "aadhaar": aadhaar[0] if aadhaar else "Not Found",
-    "gender": gender
-}
+if doc_type == "AADHAAR":
+    data = {
+        "document": "Aadhaar",
+        "name": name if name else "Not Found",
+        "dob": dob[0] if dob else "Not Found",
+        "aadhaar": aadhaar[0] if aadhaar else "Not Found",
+        "gender": gender
+    }
 
-print("\nExtracted Data:")
+elif doc_type == "PAN":
+    data = {
+        "document": "PAN",
+        "name": name_pan if name_pan else "Not Found",
+        "father_name": father_name if father_name else "Not Found",
+        "dob": dob[0] if dob else "Not Found",
+        "pan": pan
+    }
+
+else:
+    data = {
+        "document": "Unknown",
+        "message": "Could not detect document type"
+    }
+
+print("\n✅ Extracted Data:")
 print(data)
