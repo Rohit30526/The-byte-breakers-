@@ -7,7 +7,7 @@ export default function Upload() {
   const [file, setFile] = useState(null);
   const navigate = useNavigate();
 
-  // 🔥 NEW: Handle Upload Function
+  // 🔥 ONLY ADD THIS FUNCTION (no UI changes)
   const handleUpload = async () => {
     if (!file) {
       alert("Please select a file first!");
@@ -18,7 +18,7 @@ export default function Upload() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8000/verify" {
+      const response = await fetch("http://127.0.0.1:8000/verify", {
         method: "POST",
         body: formData,
       });
@@ -28,7 +28,7 @@ export default function Upload() {
 
       alert("OCR Done ✅");
 
-      // 👉 Move to next step
+      // ✅ KEEP YOUR FLOW SAME
       navigate("/selfie");
 
     } catch (error) {
@@ -39,21 +39,21 @@ export default function Upload() {
 
   return (
     <>
-      {/* 🔥 Progress Bar */}
+      {/* 🔥 Progress Bar (UNCHANGED) */}
       <ProgressBar progress={25} />
 
       <div className="container">
         <div className="card">
           <h2>Upload Document</h2>
 
-          {/* Select Document */}
+          {/* Select Document (UNCHANGED) */}
           <select onChange={(e) => setDoc(e.target.value)}>
             <option value="">Choose Document</option>
             <option value="aadhaar">Aadhaar Card</option>
             <option value="pan">PAN Card</option>
           </select>
 
-          {/* Upload File */}
+          {/* Upload File (UNCHANGED) */}
           {doc && (
             <>
               <input
@@ -67,10 +67,10 @@ export default function Upload() {
                 </p>
               )}
 
-              {/* 🔥 FIXED BUTTON */}
+              {/* 🔥 ONLY CHANGE HERE */}
               <button
                 style={{ marginTop: "15px" }}
-                onClick={handleUpload}
+                onClick={handleUpload}   // ✅ changed from navigate()
               >
                 Continue →
               </button>
