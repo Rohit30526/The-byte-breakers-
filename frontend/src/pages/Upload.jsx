@@ -7,6 +7,36 @@ export default function Upload() {
   const [file, setFile] = useState(null);
   const navigate = useNavigate();
 
+  // 🔥 NEW: Handle Upload Function
+  const handleUpload = async () => {
+    if (!file) {
+      alert("Please select a file first!");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("http://localhost:8000/verify" {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log("Response:", data);
+
+      alert("OCR Done ✅");
+
+      // 👉 Move to next step
+      navigate("/selfie");
+
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error connecting to backend ❌");
+    }
+  };
+
   return (
     <>
       {/* 🔥 Progress Bar */}
@@ -37,10 +67,10 @@ export default function Upload() {
                 </p>
               )}
 
-              {/* Continue Button */}
+              {/* 🔥 FIXED BUTTON */}
               <button
                 style={{ marginTop: "15px" }}
-                onClick={() => navigate("/selfie")}
+                onClick={handleUpload}
               >
                 Continue →
               </button>

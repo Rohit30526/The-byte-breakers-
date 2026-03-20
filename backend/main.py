@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
 from pymongo import MongoClient
 from datetime import datetime
@@ -7,6 +8,14 @@ import uuid
 
 # ✅ Create FastAPI app
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all (for now)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ✅ MongoDB Atlas Connection
 client = MongoClient("mongodb+srv://kadamsushant5328_db_user:Sitaram%40143@rakshakyc.kbnkrob.mongodb.net/rakshakyc?retryWrites=true&w=majority&appName=rakshakyc")
