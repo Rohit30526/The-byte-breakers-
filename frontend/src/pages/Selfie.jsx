@@ -1,7 +1,8 @@
+
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ProgressBar from "../components/kyc/ProgressBar";
-<ProgressBar progress={50} />
+
 export default function Selfie() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -11,12 +12,12 @@ export default function Selfie() {
 
   const navigate = useNavigate();
 
-  // 🔥 Start camera (only change state)
+  // Start camera
   const startCamera = () => {
     setCameraOn(true);
   };
 
-  // 🔥 Attach stream AFTER video renders
+  // Attach stream
   useEffect(() => {
     if (cameraOn && videoRef.current) {
       navigator.mediaDevices
@@ -55,6 +56,10 @@ export default function Selfie() {
   return (
     <div className="container">
       <div className="card">
+        
+        {/* ✅ Progress Bar */}
+        <ProgressBar progress={70} />
+
         <h2>Capture Selfie</h2>
 
         {/* STEP 1 */}
@@ -64,21 +69,29 @@ export default function Selfie() {
           </button>
         )}
 
-        {/* STEP 2 */}
+        {/* STEP 2 (CAMERA + FRAME) */}
         {cameraOn && !image && (
-          <>
+          <div className="camera-container">
+            
+            {/* Video */}
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              style={{ width: "100%", borderRadius: "10px" }}
+              className="camera-video"
             />
 
-            <button onClick={capturePhoto} style={{ marginTop: "10px" }}>
-              Capture Photo
+            {/* Overlay Frame */}
+            <div className="camera-overlay">
+              <div className="frame"></div>
+            </div>
+
+            {/* Capture Button */}
+            <button className="capture-btn" onClick={capturePhoto}>
+              Capture
             </button>
-          </>
+          </div>
         )}
 
         {/* STEP 3 */}
@@ -107,3 +120,4 @@ export default function Selfie() {
     </div>
   );
 }
+
